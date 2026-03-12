@@ -1,0 +1,157 @@
+system:
+  name: "BTC_Prediction_Model"
+  version: "1.0.0"
+  log_level: "INFO"
+  timezone: "Asia/Kolkata"
+
+data:
+  base_path: "data/"
+  files:
+    1m: "btc_1m.parquet"
+    5m: "btc_5m.parquet"
+    1h: "btc_1h.parquet"
+  columns:
+    - timestamp
+    - open
+    - high
+    - low
+    - close
+    - volume
+
+binance:
+  ws_url: "wss://stream.binance.com:9443/ws/btcusdt@aggTrade"
+  rest_url: "https://api.binance.com/api/v3"
+  symbol: "BTCUSDT"
+  reconnect_delay: 5
+  max_reconnect_attempts: 100
+
+polymarket:
+  ws_url: "wss://ws-live-data.polymarket.com"
+  topic: "crypto_prices_chainlink"
+  symbol: "btc/usd"
+  reconnect_delay: 5
+
+features:
+  window_sizes: [5, 10, 20, 50, 100, 200]
+  rsi_period: 14
+  stoch_rsi_period: 14
+  macd_fast: 12
+  macd_slow: 26
+  macd_signal: 9
+  bb_period: 20
+  bb_std: 2.0
+  atr_period: 14
+  adx_period: 14
+  keltner_period: 20
+  keltner_atr_mult: 2.0
+  ema_periods: [5, 9, 12, 21, 50, 100, 200]
+  sma_periods: [10, 20, 50, 100, 200]
+
+models:
+  xgboost:
+    n_estimators: 500
+    max_depth: 6
+    learning_rate: 0.05
+    subsample: 0.8
+    colsample_bytree: 0.8
+    min_child_weight: 5
+    gamma: 0.1
+    reg_alpha: 0.1
+    reg_lambda: 1.0
+    use_label_encoder: false
+    eval_metric: "logloss"
+    early_stopping_rounds: 50
+
+  lightgbm:
+    n_estimators: 500
+    max_depth: 6
+    learning_rate: 0.05
+    num_leaves: 63
+    subsample: 0.8
+    colsample_bytree: 0.8
+    min_child_samples: 20
+    reg_alpha: 0.1
+    reg_lambda: 1.0
+    early_stopping_rounds: 50
+
+  random_forest:
+    n_estimators: 300
+    max_depth: 10
+    min_samples_leaf: 20
+    max_features: "sqrt"
+    n_jobs: -1
+
+  logistic_regression:
+    C: 0.1
+    max_iter: 1000
+    solver: "lbfgs"
+
+  lstm:
+    sequence_length: 60
+    hidden_size: 128
+    num_layers: 2
+    dropout: 0.3
+    learning_rate: 0.001
+    batch_size: 64
+    epochs: 50
+    patience: 10
+
+  transformer:
+    sequence_length: 60
+    d_model: 64
+    nhead: 8
+    num_encoder_layers: 3
+    dim_feedforward: 256
+    dropout: 0.1
+    learning_rate: 0.0005
+    batch_size: 64
+    epochs: 50
+    patience: 10
+
+ensemble:
+  weights:
+    xgboost: 0.25
+    lightgbm: 0.25
+    random_forest: 0.15
+    logistic_regression: 0.10
+    lstm: 0.15
+    transformer: 0.10
+  calibration: true
+  method: "weighted_average"
+
+meta_model:
+  confidence_threshold: 0.60
+  min_meta_confidence: 0.55
+  features:
+    - model_confidence
+    - recent_accuracy_10
+    - recent_accuracy_20
+    - volatility_regime
+    - distance_from_ema20
+    - adx_value
+    - volume_ratio
+    - market_regime
+
+regime:
+  hmm_states: 3
+  adx_trend_threshold: 25
+  volatility_percentile_low: 33
+  volatility_percentile_high: 66
+
+training:
+  test_size: 0.2
+  val_size: 0.1
+  purge_gap: 5
+  cv_folds: 5
+  target_window: 5
+
+logging:
+  predictions_file: "logs/predictions.csv"
+  results_file: "logs/results.csv"
+  system_log: "logs/system.log"
+
+telegram:
+  bot_token: "${TELEGRAM_BOT_TOKEN}"
+  chat_id: "${TELEGRAM_CHAT_ID}"
+  send_signals: true
+  signal_min_confidence: 0.60
