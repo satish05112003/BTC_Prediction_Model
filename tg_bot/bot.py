@@ -1,7 +1,12 @@
 import os
 import time
 import logging
+from pathlib import Path
 from dotenv import load_dotenv
+
+_env_path = Path(__file__).parent.parent / ".env.example"
+if _env_path.exists():
+    load_dotenv(dotenv_path=_env_path, override=False)
 
 from telegram.ext import Application, CommandHandler
 from logs.prediction_logger import PredictionLogger
