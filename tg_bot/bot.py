@@ -7,7 +7,7 @@ from telegram.ext import Application, CommandHandler
 from logs.prediction_logger import PredictionLogger
 from tg_bot.commands import BotCommands, build_signal_message, get_volume_stats
 
-# Load .env only if present (does NOT override Railway env variables)
+# Load local .env if running locally (Railway variables stay intact)
 load_dotenv()
 
 class BTCPredictionBot:
@@ -23,8 +23,9 @@ class BTCPredictionBot:
         self.logger = PredictionLogger()
         self._commands = BotCommands(self)
         
-        TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-        CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+        # Read environment variables safely
+        TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+        CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
         self.chat_id = CHAT_ID
         
         if not TOKEN or not self.chat_id:
@@ -58,31 +59,35 @@ class BTCPredictionBot:
     async def on_new_signal(self, signal):
         """Called by prediction engine every 5 minutes."""
         
-        # 1. Resolve previous prediction outcome using current settlement price
+        # Resolve previous prediction
         if self.stream_manager and self.stream_manager.settlement_price:
             self.logger.resolve_last_prediction(self.stream_manager.settlement_price)
             
-        # 2. Save new prediction
+        # Save prediction
         self.logger.log_prediction(signal)
         
-        # 3. Store latest signal
+        # Store signal
         self.latest_signal = signal
         self.signal_count += 1
         
-        # 4. Calculate latency
+        # Latency calculation
         if self.stream_manager and self.stream_manager.settlement_ts:
             self.last_latency_seconds = time.time() - self.stream_manager.settlement_ts
             
-        # 5. Get volume stats
+        # Volume stats
         buy_vol, sell_vol, trades = await get_volume_stats(self.stream_manager)
         
-        # 6. Build message
+        # Build Telegram message (YOUR ORIGINAL FORMAT)
         msg = build_signal_message(signal, buy_vol, sell_vol, trades)
         
-        # 7. Send to Telegram channel
+        # Send message
         if self._app and self.chat_id:
             try:
-                await self._app.bot.send_message(chat_id=self.chat_id, text=msg)
+                await self._app.bot.send_message(
+                    chat_id=self.chat_id,
+                    text=msg
+                )
+                logging.info("Telegram message sent successfully")
             except Exception as e:
                 logging.error(f"Failed to send signal to Telegram: {e}")
 
@@ -94,7 +99,6 @@ class BTCPredictionBot:
         await self._app.start()
         await self._app.updater.start_polling(drop_pending_updates=True)
 
-        # Send startup disclaimer
         await self._send_startup_message()
 
     async def _send_startup_message(self):
