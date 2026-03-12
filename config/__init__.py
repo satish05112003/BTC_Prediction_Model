@@ -1,7 +1,3 @@
-"""
-Configuration loader - loads settings.yaml and environment variables.
-"""
-
 import os
 import re
 import yaml
@@ -9,34 +5,30 @@ import logging
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables
-root_dir = Path(__file__).parent.parent
-env_file = root_dir / ".env"
-if not env_file.exists():
-    env_file = root_dir / ".env.example"
-
-load_dotenv(dotenv_path=env_file, override=True)
-
 logger = logging.getLogger(__name__)
 
-token = os.environ.get("TELEGRAM_BOT_TOKEN", "NOT_FOUND")
-chat  = os.environ.get("TELEGRAM_CHAT_ID", "NOT_FOUND")
-logger.info(f"Telegram token loaded: ...{token[-10:] if len(token) > 10 else token}")
-logger.info(f"Telegram chat ID loaded: {chat}")
+# Load .env.example only locally
+_env_path = Path(__file__).parent.parent / ".env.example"
+if _env_path.exists():
+    load_dotenv(dotenv_path=_env_path, override=False)
 
-_CONFIG_PATH = Path(__file__).parent.parent / "config" / "settings.yaml"
-_config: dict = {}
+_config_cache = None
+
 
 def _resolve_env_vars(value):
-    """Replace ${VAR_NAME} with actual environment variable value."""
-    if isinstance(value, str) and value.startswith("${") and value.endswith("}"):
-        var_name = value[2:-1]
-        resolved = os.environ.get(var_name, "")
-        return resolved
-    return value
+    if not isinstance(value, str):
+        return value
+    pattern = re.compile(r'\$\{([^}]+)\}')
+    def replacer(match):
+        var_name = match.group(1)
+        result = os.environ.get(var_name, "")
+        if not result:
+            logger.warning(f"Environment variable '{var_name}' is not set.")
+        return result
+    return pattern.sub(replacer, value)
+
 
 def _resolve_config(obj):
-    """Recursively resolve all env vars in config dict."""
     if isinstance(obj, dict):
         return {k: _resolve_config(v) for k, v in obj.items()}
     elif isinstance(obj, list):
@@ -45,39 +37,20 @@ def _resolve_config(obj):
         return _resolve_env_vars(obj)
 
 
-def load_config(path: str = None) -> dict:
-    global _config
-    config_path = path or _CONFIG_PATH
-    with open(config_path, "r") as f:
-        raw = yaml.safe_load(f)
-    _config = _resolve_config(raw)
-    return _config
-
-
 def get_config() -> dict:
-    global _config
-    if not _config:
-        load_config()
-    return _config
+    global _config_cache
+    if _config_cache is not None:
+        return _config_cache
 
+    settings_path = Path(__file__).parent / "settings.yaml"
+    with open(settings_path, "r") as f:
+        raw = yaml.safe_load(f)
 
-def get(key_path: str, default=None):
-    """
-    Get a nested config value using dot notation.
-    E.g., get('models.xgboost.n_estimators')
-    """
-    cfg = get_config()
-    keys = key_path.split(".")
-    val = cfg
-    try:
-        for k in keys:
-            val = val[k]
-        return val
-    except (KeyError, TypeError):
-        return default
+    _config_cache = _resolve_config(raw)
 
-if __name__ == "__main__":
-    load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env.example", override=True)
-    cfg = get_config()
-    print("Token :", cfg.get("telegram", {}).get("bot_token", "NOT FOUND"))
-    print("Chat  :", cfg.get("telegram", {}).get("chat_id",  "NOT FOUND"))
+    token = _config_cache.get("telegram", {}).get("bot_token", "")
+    chat  = _config_cache.get("telegram", {}).get("chat_id", "")
+    logger.info(f"[Config] Telegram token: ...{token[-8:] if len(token) > 8 else 'NOT SET'}")
+    logger.info(f"[Config] Telegram chat_id: {chat or 'NOT SET'}")
+
+    return _config_cache
