@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-# BTC_Prediction_Model
-=======
 # 🔮 BTC Prediction Model v1.0.0
 
 A production-grade BTC direction prediction system designed for **Polymarket** 5-minute candle markets. This system uses institutional-grade quantitative techniques to provide high-probability signals.
@@ -37,19 +34,19 @@ Edit `.env`:
 ### 4. Run the System
 ```bash
 # Start the live prediction system (auto-warms up from Binance API)
-python main.py
+python main.py --live
 ```
 
 ---
 
 ## ☁️ Railway Deployment (24/7)
 
-This project is fully optimized for **Railway**.
+This project is fully optimized for **Railway** with a lightweight build configuration.
 
-1. **Connect your GitHub Repository** to Railway.
-2. **Setup Environment Variables** in the Railway Dashboard (copy them from `.env.example`).
-3. **Deploy**: Railway will automatically detect the `Procfile` and start the worker service.
-4. **Reliability**: The system is designed to run 24/7. If it crashes, Railway will automatically restart it.
+1.  **Connect your GitHub Repository** to Railway.
+2.  **Setup Environment Variables** in the Railway Dashboard (copy them from `.env.example`).
+3.  **Deployment**: Railway will automatically detect the `Procfile` and start the worker service.
+4.  **Build Optimization**: The `requirements.txt` is configured to use **CPU-only PyTorch** and has been stripped of heavy visualization libraries (matplotlib, seaborn, etc.) to ensure fast builds and prevent timeouts.
 
 ---
 
@@ -93,4 +90,3 @@ Once the bot is running, you can use these commands:
 
 ## ⚠️ Disclaimer
 This system is for **informational and research purposes only**. It does NOT execute trades. Trading involves significant risk.
->>>>>>> 6fb7de0 (Initial commit: Production-ready BTC Prediction System)
