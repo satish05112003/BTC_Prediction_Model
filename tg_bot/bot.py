@@ -6,9 +6,9 @@ from dotenv import load_dotenv
 from telegram.ext import Application, CommandHandler
 from logs.prediction_logger import PredictionLogger
 from tg_bot.commands import BotCommands, build_signal_message, get_volume_stats
-from pathlib import Path
 
-load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env.example", override=True)
+# Load .env only if present (does NOT override Railway env variables)
+load_dotenv()
 
 class BTCPredictionBot:
     def __init__(self, prediction_engine, stream_manager):
@@ -28,7 +28,9 @@ class BTCPredictionBot:
         self.chat_id = CHAT_ID
         
         if not TOKEN or not self.chat_id:
-            logging.warning("TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not found in .env. Bot will fail to start/send messages.")
+            logging.warning(
+                "TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not found in environment variables."
+            )
             
         if TOKEN:
             self._app = Application.builder().token(TOKEN).build()
@@ -74,7 +76,7 @@ class BTCPredictionBot:
         # 5. Get volume stats
         buy_vol, sell_vol, trades = await get_volume_stats(self.stream_manager)
         
-        # 6. Build message using build_signal_message
+        # 6. Build message
         msg = build_signal_message(signal, buy_vol, sell_vol, trades)
         
         # 7. Send to Telegram channel
@@ -91,6 +93,7 @@ class BTCPredictionBot:
         await self._app.initialize()
         await self._app.start()
         await self._app.updater.start_polling(drop_pending_updates=True)
+
         # Send startup disclaimer
         await self._send_startup_message()
 
